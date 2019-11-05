@@ -1,0 +1,1 @@
+python /home/sacha/Documents/projects/launch/main.py
