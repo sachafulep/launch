@@ -27,7 +27,8 @@ class MainWidget(QWidget):
         self.getApplications(Path("/home/sacha/.local/share/applications"))
         self.getApplications(Path("/usr/share/applications"))
 
-        self.applications = collections.OrderedDict(sorted(self.applications.items()))
+        self.applications = collections.OrderedDict(
+            sorted(self.applications.items()))
 
         for application in self.applications.values():
             if (application.name != ""):
@@ -48,22 +49,29 @@ class MainWidget(QWidget):
             if (str(file).endswith(".desktop")):
                 file = open(file, "r")
                 application = Application("", "")
+                isDesktopEntry = False
 
                 for line in file.readlines():
-                    if line.startswith("Name="):
-                        name = line.split("=")[1][:-1]
-                        application.name = name
+                    if line.startswith("[") and "[Desktop Entry]" in line:
+                        isDesktopEntry = True
+                    elif line.startswith("[") and "[Desktop Entry]" not in line:
+                        isDesktopEntry = False
 
-                    if line.startswith("Exec"):
-                        command = line.split("=")[1][:-1]
-                        application.command = command
+                    if isDesktopEntry:
+                        if line.startswith("Name="):
+                            name = line.split("=")[1][:-1]
+                            application.name = name
 
-                    self.applications[application.name] = application
+                        if line.startswith("Exec"):
+                            command = line.split("=")[1][:-1]
+                            application.command = command
+
+                        self.applications[application.name] = application
 
     def onTextChanged(self, text):
         if text == "":
             self.listWidget.clear()
-            
+
             for application in self.applications.values():
                 self.listWidget.addItem(application.name)
         else:
@@ -74,21 +82,34 @@ class MainWidget(QWidget):
                     filteredDict[application.name] = application
 
             self.listWidget.clear()
-            
+
             for application in filteredDict.values():
                 self.listWidget.addItem(application.name)
 
         self.listWidget.setCurrentRow(0)
 
-
     def eventFilter(self, widget, event):
         if event.type() == QtCore.QEvent.KeyPress:
             key = event.key()
             if key == QtCore.Qt.Key_Return:
-                subprocess.Popen(
-                    [self.applications[self.listWidget.currentItem().text()].command], 
-                    shell=True
-                )
+                application = self.applications[self.listWidget.currentItem().text()]
+
+                if "%u" in application.command:
+                    subprocess.Popen(
+                        [application.command.replace("%u", "")],
+                        shell=True
+                    )
+                elif "%U" in application.command:
+                    subprocess.Popen(
+                        [application.command.replace("%U", "")],
+                        shell=True
+                    )
+                else:
+                    subprocess.Popen(
+                        [application.command],
+                        shell=True
+                    )
+
                 sys.exit()
                 return True
 
@@ -98,14 +119,16 @@ class MainWidget(QWidget):
 
             if key == QtCore.Qt.Key_Down:
                 if self.listWidget.currentRow() < self.listWidget.count() - 1:
-                    self.listWidget.setCurrentRow(self.listWidget.currentRow() + 1)
+                    self.listWidget.setCurrentRow(
+                        self.listWidget.currentRow() + 1)
                     return True
 
             if key == QtCore.Qt.Key_Up:
                 if self.listWidget.currentRow() != 0:
-                    self.listWidget.setCurrentRow(self.listWidget.currentRow() - 1)
+                    self.listWidget.setCurrentRow(
+                        self.listWidget.currentRow() - 1)
                     return True
-        
+
         return False
 
 
