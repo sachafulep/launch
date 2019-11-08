@@ -1,13 +1,23 @@
 import sys
 import subprocess
 import collections
+import fcntl, sys
 from pathlib import Path
 from PySide2 import QtCore, QtWidgets, QtGui
 from PySide2.QtWidgets import QListWidget, QLineEdit, QVBoxLayout, QWidget, QLabel
 from PySide2.QtCore import SIGNAL, QObject
+from PySide2.QtGui import QPalette
 
 
 def run():
+    pid_file = '/home/sacha/Documents/projects/launch/program.pid'
+    fp = open(pid_file, 'w')
+    try:
+        fcntl.lockf(fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except IOError:
+        # another instance is running
+        sys.exit(0)
+
     app = QtWidgets.QApplication([])
     mainWidget = MainWidget()
     mainWidget.show()
@@ -20,31 +30,67 @@ class MainWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.installEventFilter(self)
+        self.applications = self.getApplications()
+        self.setLayout(self.createLayout())
 
+    def createLayout(self):
         self.listWidget = QListWidget(self)
-        self.applications = {}
-
-        self.getApplications(Path("/home/sacha/.local/share/applications"))
-        self.getApplications(Path("/usr/share/applications"))
-
-        self.applications = collections.OrderedDict(
-            sorted(self.applications.items()))
+        self.lineEdit = QLineEdit(self)
 
         for application in self.applications.values():
             if (application.name != ""):
                 self.listWidget.addItem(application.name)
 
-        self.lineEdit = QLineEdit(self)
-
         layout = QVBoxLayout()
         layout.addWidget(self.lineEdit)
         layout.addWidget(self.listWidget)
-        self.setLayout(layout)
 
         self.lineEdit.textChanged.connect(self.onTextChanged)
         self.listWidget.setCurrentRow(0)
 
-    def getApplications(self, path):
+        self.changeStyling()
+
+        return layout
+
+    def changeStyling(self):
+        palette = QPalette()
+        palette.setColor(QPalette.Background, QtCore.Qt.white)
+        self.setPalette(palette)
+
+        self.listWidget.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+
+        self.setStyleSheet("""
+            QLineEdit {
+                border: 0px;
+                font-size: 15px;
+                padding: 10px 10px 10px 0px;
+            }
+
+            QListWidget {
+                border: 0px;
+            }
+
+            QListWidget::item {
+                padding: 15px 10px 10px 10px;
+                border-radius: 5px;
+            }
+
+            QListWidget::item:selected {
+                background-color: #abb6d1;
+                color: #000000;
+            }
+        """)
+
+    def getApplications(self):
+        dictionary = {}
+
+        self.parseDesktopFiles(
+            Path("/home/sacha/.local/share/applications"), dictionary)
+        self.parseDesktopFiles(Path("/usr/share/applications"), dictionary)
+
+        return collections.OrderedDict(sorted(dictionary.items()))
+
+    def parseDesktopFiles(self, path, dictionary):
         for file in path.iterdir():
             if (str(file).endswith(".desktop")):
                 file = open(file, "r")
@@ -66,7 +112,7 @@ class MainWidget(QWidget):
                             command = line.split("=")[1][:-1]
                             application.command = command
 
-                        self.applications[application.name] = application
+                        dictionary[application.name] = application
 
     def onTextChanged(self, text):
         if text == "":
@@ -92,16 +138,14 @@ class MainWidget(QWidget):
         if event.type() == QtCore.QEvent.KeyPress:
             key = event.key()
             if key == QtCore.Qt.Key_Return:
-                application = self.applications[self.listWidget.currentItem().text()]
+                application = self.applications[self.listWidget.currentItem(
+                ).text()]
 
-                if "%u" in application.command:
+                if "%" in application.command:
+                    substring = "%" + application.command.split("%")[1]
+
                     subprocess.Popen(
-                        [application.command.replace("%u", "")],
-                        shell=True
-                    )
-                elif "%U" in application.command:
-                    subprocess.Popen(
-                        [application.command.replace("%U", "")],
+                        [application.command.replace(substring, "")],
                         shell=True
                     )
                 else:
