@@ -1,7 +1,8 @@
 import sys
 import subprocess
 import collections
-import fcntl, sys
+import fcntl
+import sys
 from pathlib import Path
 from PySide2 import QtCore, QtWidgets, QtGui
 from PySide2.QtWidgets import QListWidget, QLineEdit, QVBoxLayout, QWidget, QLabel
@@ -57,7 +58,8 @@ class MainWidget(QWidget):
         palette.setColor(QPalette.Background, QtCore.Qt.white)
         self.setPalette(palette)
 
-        self.listWidget.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.listWidget.setVerticalScrollBarPolicy(
+            QtCore.Qt.ScrollBarAlwaysOff)
 
         self.setStyleSheet("""
             QLineEdit {
@@ -137,22 +139,28 @@ class MainWidget(QWidget):
     def eventFilter(self, widget, event):
         if event.type() == QtCore.QEvent.KeyPress:
             key = event.key()
-            if key == QtCore.Qt.Key_Return:
-                application = self.applications[self.listWidget.currentItem(
-                ).text()]
-
-                if "%" in application.command:
-                    substring = "%" + application.command.split("%")[1]
-
+            if key == QtCore.Qt.Key_Return: 
+                input = self.lineEdit.text()
+                if input.startswith("-c"):
                     subprocess.Popen(
-                        [application.command.replace(substring, "")],
-                        shell=True
-                    )
+                            [input[3:]],
+                            shell=True
+                        )
                 else:
-                    subprocess.Popen(
-                        [application.command],
-                        shell=True
-                    )
+                    application = self.applications[self.listWidget.currentItem().text()]
+
+                    if "%" in application.command:
+                        substring = "%" + application.command.split("%")[1]
+
+                        subprocess.Popen(
+                            [application.command.replace(substring, "")],
+                            shell=True
+                        )
+                    else:
+                        subprocess.Popen(
+                            [application.command],
+                            shell=True
+                        )
 
                 sys.exit()
                 return True
