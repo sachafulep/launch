@@ -90,6 +90,8 @@ class MainWidget(QWidget):
             Path("/home/sacha/.local/share/applications"), dictionary)
         self.parseDesktopFiles(Path("/usr/share/applications"), dictionary)
 
+        self.addSystemCalls(dictionary)
+
         return collections.OrderedDict(sorted(dictionary.items()))
 
     def parseDesktopFiles(self, path, dictionary):
@@ -115,6 +117,11 @@ class MainWidget(QWidget):
                             application.command = command
 
                         dictionary[application.name] = application
+
+    def addSystemCalls(self, dictionary):
+        dictionary["Sleep"] = Application("Sleep", "systemctl suspend")
+        dictionary["Reboot"] = Application("Reboot", "reboot")
+        dictionary["Shutdown"] = Application("Shutdown", "shutdown now")
 
     def onTextChanged(self, text):
         if text == "":
@@ -142,25 +149,17 @@ class MainWidget(QWidget):
             if key == QtCore.Qt.Key_Return: 
                 input = self.lineEdit.text()
                 if input.startswith("-c"):
-                    subprocess.Popen(
-                            [input[3:]],
-                            shell=True
-                        )
+                    self.runCommand(input[3:])
+                
                 else:
                     application = self.applications[self.listWidget.currentItem().text()]
 
                     if "%" in application.command:
                         substring = "%" + application.command.split("%")[1]
-
-                        subprocess.Popen(
-                            [application.command.replace(substring, "")],
-                            shell=True
-                        )
+                        self.runCommand(application.command.replace(substring, ""))
+                    
                     else:
-                        subprocess.Popen(
-                            [application.command],
-                            shell=True
-                        )
+                        self.runCommand(application.command)
 
                 sys.exit()
                 return True
@@ -182,7 +181,12 @@ class MainWidget(QWidget):
                     return True
 
         return False
-
+    
+    def runCommand(self, command):
+        subprocess.Popen(
+                            [command],
+                            shell=True
+                        )
 
 class Application():
     def __init__(self, name, command):
