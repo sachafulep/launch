@@ -9,6 +9,8 @@ from PySide2.QtWidgets import QListWidget, QLineEdit, QVBoxLayout, QWidget, QLab
 from PySide2.QtCore import SIGNAL, QObject
 from PySide2.QtGui import QPalette
 
+#TODO create program.pid if not exists create 
+#.local/share/applications folder if not exists
 
 def run():
     pid_file = '/home/sacha/Documents/projects/launch/program.pid'
